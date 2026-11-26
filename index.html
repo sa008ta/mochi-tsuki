@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>餅つき名人</title>
+<meta name="description" content="相方が餅を返す合間に杵で叩く、タイミング一つの餅つきゲーム。手を叩いたら即終了。">
+<meta property="og:title" content="餅つき名人">
+<meta property="og:description" content="相方の手がない瞬間に叩け。タイミング一つの餅つきゲーム。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://sa008ta.github.io/mochi-tsuki/">
+<meta property="og:image" content="https://sa008ta.github.io/mochi-tsuki/cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="餅つき名人">
+<meta name="twitter:description" content="相方の手がない瞬間に叩け。タイミング一つの餅つきゲーム。">
+<meta name="twitter:image" content="https://sa008ta.github.io/mochi-tsuki/cover.png">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  input, textarea { user-select: text; -webkit-user-select: text; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #2a1c10; font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif; touch-action: none; overscroll-behavior: none; }
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #tapLayer { position: fixed; inset: 0; z-index: 3; }
+  #skipBtn { position: fixed; right: 14px; top: 14px; z-index: 8; display: none; background: rgba(30, 20, 12, .72); color: #fff; border: 1px solid rgba(255,255,255,.35); font-family: inherit; font-size: 15.5px; font-weight: 700; padding: 12px 22px; border-radius: 999px; }
+  #skipBtn.on { display: block; }
+
+  /* ===== HUD ===== */
+  #hud { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 0; right: 0; display: none; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; z-index: 5; padding: 0 10px; }
+  #hud.on { display: flex; }
+  .row { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: nowrap; }
+  .pill { background: rgba(20, 12, 6, .78); color: #fff; border-radius: 999px; padding: 6px 14px; font-size: 15px; font-weight: 800; white-space: nowrap; }
+  .pill.big { font-size: 19px; }
+  .pill .num { color: #ffd94d; }
+
+  /* ===== big pop text ===== */
+  #pop { position: fixed; top: 34%; left: 0; right: 0; text-align: center; font-size: 44px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.3); opacity: 0; pointer-events: none; z-index: 8; transform: scale(.8); }
+  #pop.show { animation: popA .9s ease-out forwards; }
+  @keyframes popA { 0% { opacity: 0; transform: scale(.7); } 18% { opacity: 1; transform: scale(1.08); } 32% { transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: scale(1.02); } }
+
+  /* ===== screens ===== */
+  .scr { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(24, 14, 6, .55); z-index: 10; padding: 20px; text-align: center; }
+  .scr.on { display: flex; }
+  .card { background: #fffaf0; border-radius: 20px; padding: 26px 26px 22px; max-width: min(92vw, 430px); width: 100%; box-shadow: 0 14px 44px rgba(0,0,0,.45); display: flex; flex-direction: column; align-items: center; gap: 12px; max-height: 92dvh; overflow-y: auto; }
+  h1.title { font-size: 44px; font-weight: 900; color: #7a3b12; letter-spacing: .04em; }
+  .sub { font-size: 15px; color: #6b543f; font-weight: 700; line-height: 1.65; }
+  .rule { font-size: 17px; font-weight: 900; color: #b3401e; }
+  .btn { pointer-events: auto; background: #d84a1e; color: #fff; border: none; border-radius: 999px; padding: 14px 34px; font-size: 19px; font-weight: 900; font-family: inherit; cursor: pointer; box-shadow: 0 5px 0 #9c3410; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #9c3410; }
+  .btn.sub2 { background: #8a6a4a; box-shadow: 0 5px 0 #63482c; font-size: 15px; padding: 11px 24px; }
+  .btn.blue { background: #2a5ad8; box-shadow: 0 5px 0 #1a3f9e; }
+  .btnrow { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .best { font-size: 14px; color: #8a6a4a; font-weight: 800; }
+
+  /* ===== result ===== */
+  #resPounds { font-size: 58px; font-weight: 900; color: #7a3b12; line-height: 1.1; }
+  #resTitle { font-size: 21px; font-weight: 900; color: #1a1a1a; }
+  #resComment { font-size: 14px; color: #222; line-height: 1.6; }
+  .resRows { width: 100%; display: flex; flex-direction: column; gap: 5px; font-size: 15px; font-weight: 700; color: #4a3826; }
+  .resRows .r { display: flex; justify-content: space-between; border-bottom: 1px dashed #e0cdb0; padding-bottom: 4px; }
+
+  /* ===== ending performance ===== */
+  #fadeWhite { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .75s ease; z-index: 9; }
+  #fadeWhite.on { opacity: 1; }
+  #bubble { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -100%); background: #fff; color: #2b2b2b; font-size: 15px; font-weight: 700; line-height: 1.45; padding: 9px 14px; border-radius: 14px; width: max-content; max-width: 72vw; text-align: center; opacity: 0; transition: opacity .25s ease; pointer-events: none; z-index: 9; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  #bubble.on { opacity: 1; }
+  #bubble::after { content: ''; position: absolute; left: var(--tailX, 50%); bottom: -7px; transform: translateX(-50%); border: 8px solid transparent; border-top-color: #fff; border-bottom: 0; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="tapLayer"></div>
+<button id="skipBtn">スキップ</button>
+
+<div id="hud">
+  <div class="row">
+    <div class="pill">⏱ <span class="num" id="timeNum">20.0</span></div>
+  </div>
+</div>
+
+<div id="pop"></div>
+<div id="fadeWhite"></div>
+<div id="bubble"></div>
+
+<div class="scr" id="resultScr">
+  <div class="card">
+    <div id="resTitle">相方の手を叩いてしまった</div>
+    <div id="resPounds">0点</div>
+    <div id="resComment"></div>
+    <div class="resRows">
+      <div class="r"><span>ベスト</span><span id="resBest">0回</span></div>
+    </div>
+    <div class="btnrow">
+      <button class="btn" id="retryBtn">もう一回</button>
+      <button class="btn blue" id="shareBtn">共有</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ================= UTIL ================= */
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[(Math.random() * arr.length) | 0];
+
+function playerId() {
+  try {
+    let id = localStorage.getItem('mochi_pid');
+    if (id) return id;
+    const m = document.cookie.match(/mochi_pid=([a-z0-9]+)/);
+    if (m) { localStorage.setItem('mochi_pid', m[1]); return m[1]; }
+    id = 'p' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-3);
+    localStorage.setItem('mochi_pid', id);
+    document.cookie = 'mochi_pid=' + id + '; max-age=31536000; path=/';
+    return id;
+  } catch (e) { return 'p' + Math.random().toString(36).slice(2, 10); }
+}
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('mochi_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('mochi_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ================= NAMES / NG (shared list) ================= */
+const NG_WORDS = [
+  'ちんこ', 'チンコ', 'ちんぽ', 'チンポ', 'ちんちん', 'チンチン', 'ちんかす', 'まんこ', 'マンコ', 'おまんこ', 'まんかす',
+  'きんたま', 'キンタマ', '金玉', 'たまきん', 'くりとりす', 'クリトリス', '陰核', 'いんかく',
+  'ペニス', 'ぺにす', '陰茎', 'いんけい', '膣', '肛門', 'こうもん', 'アナル', 'あなる',
+  'セックス', 'せっくす', 'エロ', 'えろ', 'オナニー', 'おなにー', '自慰', '射精', 'しゃせい', '精液', 'せいえき', '精子',
+  'フェラ', 'ふぇら', 'パイズリ', 'ぱいずり', '手コキ', 'てこき', '中出し', 'なかだし', '潮吹き', 'しおふき',
+  '勃起', 'ぼっき', '淫乱', 'いんらん', '淫', '変態', 'へんたい', '痴漢', 'ちかん', 'レイプ', 'れいぷ', '強姦', 'ごうかん',
+  'ロリ', 'ろり', 'ショタ', 'しょた', 'ふたなり', '風俗', 'ふうぞく', 'ソープランド', 'そーぷ', '愛液', 'あいえき',
+  '巨乳', 'きょにゅう', 'おっぱい', 'オッパイ', '乳首', 'ちくび', '処女', 'しょじょ', '童貞', 'どうてい',
+  'ヤリマン', 'やりまん', 'ビッチ', 'びっち', '売春', 'ばいしゅん', '援交', 'えんこう', 'パパ活', 'ぱぱかつ',
+  'うんこ', 'ウンコ', 'くそったれ', 'クソッタレ', '死ね', 'しね',
+  'fuck', 'shit', 'dick', 'cock', 'pussy', 'bitch', 'porn', 'sex', 'anal', 'cum', 'tits', 'boobs', 'penis', 'vagina', 'hentai', 'whore', 'slut', 'nigger'
+];
+function ngNorm(s) {
+  return (s || '').toLowerCase()
+    .replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60))
+    .replace(/[\s　・._\-ー]/g, '');
+}
+const NG_NORM = NG_WORDS.map(ngNorm);
+function hasNG(s) { const n = ngNorm(s); return NG_NORM.some(w => w && n.includes(w)); }
+function cleanName(s, fallback) {
+  s = (s || '').trim();
+  if (!s || !hasNG(s)) return s;
+  let out = s;
+  for (const w of NG_WORDS) out = out.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '＊'.repeat(Math.max(2, w.length)));
+  return hasNG(out) ? fallback : out;
+}
+const sanitizeName = cleanName;
+
+/* ================= AUDIO (tiny synth) ================= */
+let AC = null;
+function ac() { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; }
+function tone(freq, dur, type, vol, slideTo) {
+  try {
+    const c = ac(), o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, c.currentTime);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, c.currentTime + dur);
+    g.gain.setValueAtTime(vol, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+    o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + dur);
+  } catch (e) {}
+}
+function noiseBurst(dur, vol, freq) {
+  try {
+    const c = ac(), len = Math.floor(c.sampleRate * dur), buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = c.createBufferSource(); src.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq || 800;
+    const g = c.createGain(); g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(c.destination); src.start();
+  } catch (e) {}
+}
+const sndPound = () => { tone(95, 0.16, 'sine', 0.5, 45); noiseBurst(0.07, 0.25, 500); };
+const sndFlip = () => noiseBurst(0.09, 0.12, 1800);
+const sndEntry = () => noiseBurst(0.09, 0.07, 2400); // the hand starts moving: a soft whoosh, feints included
+const sndHit = () => { tone(220, 0.25, 'square', 0.3, 90); noiseBurst(0.15, 0.4, 900); setTimeout(() => tone(660, 0.3, 'square', 0.18, 990), 60); };
+const sndDone = () => { tone(660, 0.12, 'sine', 0.25); setTimeout(() => tone(880, 0.2, 'sine', 0.25), 110); };
+
+/* ================= SCENE ================= */
+const canvas = $('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x3a2415);
+scene.fog = new THREE.Fog(0x3a2415, 16, 30);
+const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.1, 60);
+camera.position.set(3.6, 3.9, 6.4);
+camera.lookAt(0, 0.9, -0.3);
+
+const sun = new THREE.DirectionalLight(0xfff1d8, 2.0);
+sun.position.set(4, 7, 5);
+scene.add(sun);
+scene.add(new THREE.AmbientLight(0xffe8c8, 0.85));
+const glowLight = new THREE.PointLight(0xffb84d, 0, 8, 2); // real light from the glowing mochi: spills onto the usu, the partner and the floor
+glowLight.position.set(0, 2.0, 0.4);
+scene.add(glowLight);
+const lam = c => new THREE.MeshLambertMaterial({ color: c });
+
+/* --- room: wooden floor, tatami mat, back wall, kadomatsu --- */
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 22), lam(0x8a5f36));
+floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.02, 2);
+scene.add(floor);
+const mat = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.09, 5.6), lam(0xb9ac7d));
+mat.position.set(0, 0.045, -0.4);
+scene.add(mat);
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(30, 9), lam(0xeeddc0));
+wall.position.set(0, 4.5, -5.2);
+scene.add(wall);
+const beam = new THREE.Mesh(new THREE.BoxGeometry(30, 0.5, 0.3), lam(0x6e4525));
+beam.position.set(0, 3.4, -5.05);
+scene.add(beam);
+// hanging scroll
+const scroll = new THREE.Group();
+const scrollPaper = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 1.7), lam(0xfdf6e3));
+scroll.add(scrollPaper);
+const scrollBar = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.15, 8), lam(0x4a2f1a));
+scrollBar.rotation.z = Math.PI / 2; scrollBar.position.y = -0.9;
+scroll.add(scrollBar);
+const mochiDraw = (() => { // a simple mochi painting on the scroll: white blob on a stand
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 10), lam(0xffffff));
+  b.scale.set(1, 0.62, 0.4); b.position.y = 0.12;
+  const t = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), lam(0xffffff));
+  t.scale.set(1, 0.6, 0.4); t.position.y = 0.32;
+  const stand = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.07, 0.2), lam(0x8a2a1a));
+  stand.position.y = -0.06;
+  const mikan = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), lam(0xe8861e));
+  mikan.position.y = 0.45; mikan.scale.z = 0.5;
+  g.add(b, t, stand, mikan);
+  return g;
+})();
+mochiDraw.position.set(0, 0.1, 0.03);
+scroll.add(mochiDraw);
+scroll.position.set(-2.9, 2.2, -5.0);
+scene.add(scroll);
+// kadomatsu (left corner)
+{
+  const kado = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.5, 12), lam(0xc9a86a));
+  base.position.y = 0.25; kado.add(base);
+  for (let i = 0; i < 3; i++) {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.5 - Math.abs(i - 1) * 0.25, 8), lam(0x3f7a3a));
+    b.position.set((i - 1) * 0.17, 1.1, 0); b.rotation.z = (i - 1) * 0.13;
+    kado.add(b);
+  }
+  for (let i = 0; i < 7; i++) {
+    const pine = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.55, 6), lam(0x2a5c2e));
+    const a = i / 7 * Math.PI * 2;
+    pine.position.set(Math.cos(a) * 0.3, 0.62, Math.sin(a) * 0.3);
+    pine.rotation.set(Math.sin(a) * 0.7, 0, Math.cos(a) * 0.7);
+    kado.add(pine);
+  }
+  const plum = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), lam(0xe88ab0));
+  plum.position.set(0.25, 0.85, 0.2); kado.add(plum);
+  kado.position.set(-3.4, 0, -3.4);
+  scene.add(kado);
+}
+
+/* --- usu (mortar) --- */
+const usu = new THREE.Group();
+{
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(1.04, 0.84, 0.95, 22), lam(0x8a5a33));
+  body.position.y = 0.48;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.085, 10, 24), lam(0x6e4525));
+  rim.rotation.x = Math.PI / 2; rim.position.y = 0.96;
+  const inner = new THREE.Mesh(new THREE.CircleGeometry(0.94, 22), lam(0x54381e));
+  inner.rotation.x = -Math.PI / 2; inner.position.y = 0.94;
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.035, 8, 22), lam(0x4a2f1a));
+  band.rotation.x = Math.PI / 2; band.position.y = 0.3;
+  usu.add(body, rim, inner, band);
+  for (const s of [-1, 1]) {
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.04, 8, 14), lam(0x4a2f1a));
+    handle.position.set(s * 1.06, 0.62, 0); handle.rotation.y = Math.PI / 2;
+    usu.add(handle);
+  }
+}
+scene.add(usu);
+
+/* --- mochi --- */
+const mochiG = new THREE.Group();
+const mochiMat = new THREE.MeshPhongMaterial({ color: 0xfff9ef, specular: 0x141414, shininess: 8 }); // the golden glow update is in the frame loop
+const mochiMain = new THREE.Mesh(new THREE.SphereGeometry(0.62, 20, 16), mochiMat);
+mochiMain.scale.set(1, 0.55, 1);
+const mochiTop = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 12), mochiMat);
+mochiTop.scale.set(1, 0.55, 1); mochiTop.position.y = 0.3;
+mochiG.add(mochiMain, mochiTop);
+mochiG.position.set(0, 1.06, 0);
+scene.add(mochiG);
+// golden glow that spreads from the mochi's center as it is pounded (full glow at 35)
+function glowTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(64, 64, 2, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+const glowMat = new THREE.MeshBasicMaterial({ map: glowTexture(), color: 0xffbe2e, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+const glowDisc = new THREE.Mesh(new THREE.CircleGeometry(1, 24), glowMat);
+glowDisc.rotation.x = -Math.PI / 2;
+glowDisc.position.y = 0.48;
+mochiG.add(glowDisc);
+// tray for finished mochi
+const tray = new THREE.Group();
+{
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.5, 0.1, 18), lam(0x7a4a26));
+  plate.position.y = 0.05;
+  const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.36, 0.16, 12), lam(0x5f3820));
+  leg.position.y = -0.06;
+  tray.add(plate, leg);
+}
+tray.position.set(2.6, 0.14, 1.15);
+scene.add(tray);
+const trayMochi = [];
+function addTrayMochi() {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), mochiMat);
+  m.scale.set(1, 0.5, 1);
+  const i = trayMochi.length;
+  m.position.set(2.6 + (i % 2 ? 0.3 : -0.28), 0.32 + Math.floor(i / 2) * 0.26, 1.15 + (i % 3 === 2 ? 0.1 : -0.12));
+  scene.add(m);
+  trayMochi.push(m);
+}
+
+/* --- steam sprites --- */
+function puffTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+  gr.addColorStop(0, 'rgba(255,255,255,0.85)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+const puffTex = puffTexture();
+const steams = [];
+for (let i = 0; i < 7; i++) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, opacity: 0.35, depthWrite: false }));
+  s.position.set(rand(-0.3, 0.3), 1.4 + i * 0.22, rand(-0.3, 0.3));
+  const sc = rand(0.5, 0.85); s.scale.set(sc, sc, 1);
+  s.userData.ph = Math.random() * 6;
+  scene.add(s); steams.push(s);
+}
+const sparkTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  x.translate(32, 32); x.fillStyle = '#fff';
+  x.beginPath(); x.moveTo(0, -30); x.quadraticCurveTo(4, -4, 30, 0); x.quadraticCurveTo(4, 4, 0, 30); x.quadraticCurveTo(-4, 4, -30, 0); x.quadraticCurveTo(-4, -4, 0, -30); x.fill();
+  return new THREE.CanvasTexture(c); })();
+const sparks = [];
+function spawnSparks() { // impact sparkles: a couple early, a shower at full tempo (same scaling idea as the reference game's)
+  const tempoK = clamp(G.timeS / LIMIT, 0, 1);
+  const n = Math.round(2 + tempoK * 9);
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color: 0xffe98a, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending }));
+    s.position.set(rand(-0.25, 0.25), 1.35, rand(-0.25, 0.25));
+    const sc = rand(0.08, 0.16) * (1 + tempoK * 0.6); s.scale.set(sc, sc, 1);
+    s.userData.v = new THREE.Vector3(rand(-1.6, 1.6), rand(1.0, 2.6), rand(-1.6, 1.6));
+    s.userData.life = rand(0.3, 0.5);
+    scene.add(s); sparks.push(s);
+  }
+}
+function updateSparks(dt) {
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i]; s.userData.life -= dt;
+    if (s.userData.life <= 0) { scene.remove(s); s.material.dispose(); sparks.splice(i, 1); continue; }
+    s.userData.v.y -= 3.5 * dt;
+    s.position.addScaledVector(s.userData.v, dt);
+    s.material.opacity = Math.min(1, s.userData.life * 3);
+  }
+}
+const bursts = [];
+function burst() {
+  for (let i = 0; i < 9; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, opacity: 0.8, depthWrite: false }));
+    s.position.set(rand(-0.2, 0.2), 1.25, rand(-0.2, 0.2));
+    s.scale.set(0.3, 0.3, 1);
+    s.userData.v = new THREE.Vector3(rand(-1.4, 1.4), rand(1.2, 2.4), rand(-1.4, 1.4));
+    s.userData.life = 0.55;
+    scene.add(s); bursts.push(s);
+  }
+}
+
+/* ================= FIGURES ================= */
+const SKIN = 0xf2c79b;
+function headWithBand(bandColor) {
+  const g = new THREE.Group();
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 14, 12), lam(SKIN));
+  g.add(head);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.215, 0.09, 14), lam(bandColor));
+  band.position.y = 0.09;
+  g.add(band);
+  const knot = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.03), lam(bandColor));
+  knot.position.set(0.14, 0.16, -0.14); knot.rotation.z = 0.5;
+  g.add(knot);
+  const eyeGeo = new THREE.SphereGeometry(0.026, 6, 6), eyeM = lam(0x14100c);
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(eyeGeo, eyeM);
+    eye.position.set(s * 0.075, 0.01, 0.19);
+    g.add(eye);
+  }
+  return g;
+}
+function limbMesh(r, len, mat) {
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 3, 8), mat);
+  m.position.y = -(len / 2 + r * 0.6);
+  return m;
+}
+
+/* --- the pounder (player side): body + a swing rig carrying arms and the kine --- */
+const playerG = new THREE.Group();
+{
+  const pants = lam(0xe8e2d4), happi = lam(0x2a4a8f);
+  for (const s of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.55, 3, 8), pants);
+    leg.position.set(s * 0.17, 0.5, s > 0 ? 0.1 : -0.12);
+    leg.rotation.x = s > 0 ? -0.15 : 0.2;
+    playerG.add(leg);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.07, 0.3), lam(0xd8d2c2));
+    foot.position.set(s * 0.17, 0.04, (s > 0 ? 0.1 : -0.12) + 0.05);
+    playerG.add(foot);
+  }
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.45, 4, 10), happi);
+  torso.position.y = 1.28;
+  playerG.add(torso);
+  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.335, 0.335, 0.11, 12), lam(0xf0ead8));
+  belt.position.y = 1.02;
+  playerG.add(belt);
+  const head = headWithBand(0xf0ead8);
+  head.position.y = 1.82;
+  playerG.add(head);
+  playerG.position.set(0, 0, -1.62);
+  scene.add(playerG);
+}
+const swingG = new THREE.Group(); // pivot at the hands: kine + both arms swing together
+{
+  const wood = lam(0xc9a06a), woodDark = lam(0xa87f4c), happi = lam(0x2a4a8f), skinM = lam(SKIN);
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 1.45, 10), wood);
+  handle.position.y = -0.72;
+  swingG.add(handle);
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.62, 16), woodDark);
+  head.rotation.x = Math.PI / 2; // mallet-style (per the reference photos): the head's axis runs front-to-back, across the swing plane — the flat end faces the camera and the usu
+  head.position.y = -1.45;
+  swingG.add(head);
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.028, 8, 12), lam(0x6e4525));
+  collar.rotation.x = Math.PI / 2; collar.position.y = -1.28;
+  swingG.add(collar);
+  swingG.position.set(0, 2.12, -1.45);
+  swingG.rotation.x = 1.5;
+  scene.add(swingG);
+}
+/* the pounder's arms: NOT part of the swing rig — the shoulders stay fixed on the torso and each arm is posed every frame shoulder -> elbow -> the hand's grip point on the handle (the old in-rig arms orbited the hands pivot, detached from the body and stuck out sideways) */
+const armSegs = [];
+{
+  const happi = lam(0x2a4a8f), skinM = lam(SKIN);
+  for (const s of [-1, 1]) {
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 1, 3, 8), happi);
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 1, 3, 8), skinM);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 8), skinM);
+    scene.add(upper, fore, hand);
+    armSegs.push({ s, upper, fore, hand, shoulder: new THREE.Vector3(s * 0.3, 1.52, -1.62), gripLocal: new THREE.Vector3(s * 0.05, -0.52, 0.03) });
+  }
+}
+const _ga = new THREE.Vector3(), _gb = new THREE.Vector3(), _gd = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+function poseSeg(mesh, a, b, r) {
+  _gd.subVectors(b, a);
+  const len = Math.max(_gd.length(), 0.01);
+  mesh.position.copy(a).addScaledVector(_gd, 0.5);
+  mesh.quaternion.setFromUnitVectors(_up, _gd.normalize());
+  mesh.scale.set(1, len / (1 + 2 * r), 1);
+}
+function poseArms() {
+  for (const A of armSegs) {
+    _ga.copy(A.gripLocal);
+    swingG.localToWorld(_ga);
+    _gb.set(A.shoulder.x + A.s * 0.24, (A.shoulder.y + _ga.y) / 2 - 0.08, (A.shoulder.z + _ga.z) / 2 - 0.12); // elbow: out, down, back
+    poseSeg(A.upper, A.shoulder, _gb, 0.1);
+    poseSeg(A.fore, _gb, _ga, 0.075);
+    A.hand.position.copy(_ga);
+  }
+}
+const SWING_KEYS = {
+  rest:   { p: [0, 2.12, -1.45], r: -2.55 }, // the raised kine leans up-FORWARD over the usu (positive r swung the head behind his back — user: 「後ろに叩いてるモーションしてる」)
+  windup: { p: [0, 2.38, -1.68], r: -3.3 }, // a bigger windup (user: 「もうちょっと振りかぶって」): higher lift, head of the kine tipped just past vertical over his head
+  strike: { p: [0, 2.15, -1.25], r: -1.15 }
+};
+function applySwing(a, b, t) {
+  swingG.position.set(
+    a.p[0] + (b.p[0] - a.p[0]) * t,
+    a.p[1] + (b.p[1] - a.p[1]) * t,
+    a.p[2] + (b.p[2] - a.p[2]) * t
+  );
+  swingG.rotation.x = a.r + (b.r - a.r) * t;
+  poseArms();
+}
+
+/* --- the partner (flips the mochi): kneeling, one arm reaches in --- */
+const partnerG = new THREE.Group();
+const partnerBody = new THREE.Group();
+let flipArm;
+{
+  const happi = lam(0x9c3a26), pants = lam(0x4a3a30), skinM = lam(SKIN);
+  for (const s of [-1, 1]) {
+    const shin = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.55), pants);
+    shin.position.set(s * 0.16, 0.06, -0.28);
+    partnerBody.add(shin);
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.3, 3, 8), pants);
+    thigh.position.set(s * 0.16, 0.3, -0.05); thigh.rotation.x = 1.15;
+    partnerBody.add(thigh);
+  }
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 0.4, 4, 10), happi);
+  torso.position.y = 0.82;
+  partnerBody.add(torso);
+  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.315, 0.315, 0.1, 12), lam(0xf0ead8));
+  belt.position.y = 0.58;
+  partnerBody.add(belt);
+  const head = headWithBand(0xd84a1e);
+  head.position.y = 1.32;
+  partnerBody.add(head);
+  // resting arm (local +x): hand on knee
+  const restArm = new THREE.Group(); restArm.position.set(0.36, 1.04, 0.05);
+  const ra = limbMesh(0.08, 0.5, skinM); restArm.add(ra);
+  const rSleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.16, 3, 8), happi);
+  rSleeve.position.y = -0.08; restArm.add(rSleeve);
+  restArm.rotation.x = -0.55; restArm.rotation.z = 0.25;
+  partnerBody.add(restArm);
+  // flipping arm (local -x): the one that goes into the usu
+  flipArm = new THREE.Group(); flipArm.position.set(-0.36, 1.04, 0.05);
+  const fa = limbMesh(0.08, 0.78, skinM); flipArm.add(fa);
+  const fSleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.16, 3, 8), happi);
+  fSleeve.position.y = -0.08; flipArm.add(fSleeve);
+  const hand = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), skinM);
+  hand.position.y = -0.98; hand.name = 'flipHand';
+  hand.scale.set(1, 0.82, 1.18);
+  flipArm.add(hand);
+  const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.035, 8, 12), lam(0xdce8ee));
+  cuff.rotation.x = Math.PI / 2; cuff.position.y = -0.84;
+  flipArm.add(cuff);
+  partnerBody.add(flipArm);
+  partnerG.add(partnerBody);
+  partnerG.position.set(1.3, 0, 0.5);
+  partnerG.rotation.y = Math.atan2(0 - 1.3, 0 - 0.5);
+  scene.add(partnerG);
+}
+const flipHandMesh = flipArm.getObjectByName('flipHand');
+const restArm = partnerBody.children.find(c => c.isGroup && c.position.x > 0.3); // the partner's other arm (local +x group) — his eating arm in the ending: the long straight flip arm cannot reach his mouth (min gap 0.49), this one can (0.12)
+const handSkinMat = flipHandMesh.material;
+const handHurtMat = lam(0xe23b2a);
+// speed trails (modelled on the swing game the user pointed at): a continuous arc band behind the moving hand and the kine head — thin and faint early, thick and bright as the clock-driven tempo rises. No camera effects.
+class Trail {
+  constructor(color, maxPts) {
+    this.maxPts = maxPts; this.pts = [];
+    const g = new THREE.BufferGeometry();
+    this.posAttr = new THREE.BufferAttribute(new Float32Array(maxPts * 2 * 3), 3);
+    this.posAttr.setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.posAttr);
+    const idx = [];
+    for (let i = 0; i < maxPts - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    g.setIndex(idx);
+    this.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+    this.mesh.frustumCulled = false; this.mesh.visible = false;
+    scene.add(this.mesh);
+  }
+  push(p) { this.pts.unshift(p.x, p.y, p.z); if (this.pts.length > this.maxPts * 3) this.pts.length = this.maxPts * 3; }
+  update(camPos, width, opacity) {
+    const n = this.pts.length / 3;
+    if (n < 3 || opacity <= 0.01) { this.mesh.visible = false; return; }
+    this.mesh.visible = true;
+    const arr = this.posAttr.array, P = this.pts;
+    for (let i = 0; i < this.maxPts; i++) {
+      const j = Math.min(i, n - 1) * 3, k = Math.min(i + 1, n - 1) * 3;
+      const dx = P[j] - P[k], dy = P[j + 1] - P[k + 1], dz = P[j + 2] - P[k + 2];
+      const vx = camPos.x - P[j], vy = camPos.y - P[j + 1], vz = camPos.z - P[j + 2];
+      let sx = dy * vz - dz * vy, sy = dz * vx - dx * vz, sz = dx * vy - dy * vx;
+      const sl = Math.hypot(sx, sy, sz) || 1; sx /= sl; sy /= sl; sz /= sl;
+      const w = width * (1 - (i / this.maxPts) * 0.75);
+      arr[i * 6] = P[j] + sx * w; arr[i * 6 + 1] = P[j + 1] + sy * w; arr[i * 6 + 2] = P[j + 2] + sz * w;
+      arr[i * 6 + 3] = P[j] - sx * w; arr[i * 6 + 4] = P[j + 1] - sy * w; arr[i * 6 + 5] = P[j + 2] - sz * w;
+    }
+    this.posAttr.needsUpdate = true;
+    this.mesh.material.opacity = opacity;
+  }
+  clear() { this.pts.length = 0; this.mesh.visible = false; }
+}
+const handTrail = new Trail(0xfff3d6, 18);
+const kineTrail = new Trail(0xffdf9e, 16);
+const kineHeadMesh = swingG.children.find(m => m.geometry && m.geometry.type === 'CylinderGeometry' && m.geometry.parameters.radiusTop === 0.23); // the head, not the handle (both are cylinders; the handle comes first in children)
+const _hw = new THREE.Vector3(), _kw = new THREE.Vector3();
+function updateTrails() {
+  const tempoK = clamp(G.timeS / LIMIT, 0, 1);
+  if (G.phase === 'play' && tempoK > 0.1) {
+    flipHandMesh.getWorldPosition(_hw); handTrail.push(_hw);
+    if (kineHeadMesh) { kineHeadMesh.getWorldPosition(_kw); kineTrail.push(_kw); }
+    handTrail.update(camera.position, 0.02 + tempoK * 0.055, tempoK * 0.65);
+    kineTrail.update(camera.position, 0.025 + tempoK * 0.06, tempoK * 0.6);
+  } else { handTrail.mesh.visible = false; kineTrail.mesh.visible = false; }
+}
+function applyPartner(handPos, lean) {
+  // 3-key reach (probed against the real scene): rest beside the knee -> hand raised high -> down ON TOP of the mochi (hand world ~(0.21, 1.47, 0.08) at handPos 1). The old 2-key pose buried the hand inside the usu at y 0.26, under the mochi — the root of every "can't tell if the hand is in" complaint.
+  let rx, rz;
+  if (handPos < 0.4) { const u = handPos / 0.4; rx = 0.35 + (-2.3 - 0.35) * u; rz = -0.15 + (0.34 + 0.15) * u; }
+  else { const u = (handPos - 0.4) / 0.6; rx = -2.3 + (-2.79 + 2.3) * u; rz = 0.34 + (0.38 - 0.34) * u; }
+  flipArm.rotation.x = rx;
+  flipArm.rotation.z = rz;
+  partnerBody.rotation.x = lean * 0.46;
+  partnerBody.position.y = -lean * 0.07;
+}
+
+/* ================= GAME STATE ================= */
+const G = {
+  phase: 'title', // title | play | hit | over
+  pounds: 0, completed: 0, inMochi: 0,
+  handPos: 0, handTarget: 0, cycle: 'out', cycleT: 1.2, feint: false, flipped: false,
+  swingT: -1, impacted: false, buffered: false,
+  squash: 0, mochiRot: 0, flipT: -1, hitT: 0, swapT: -1, resultShown: false, endKind: 'hit', doneT: 0, timeS: 0
+};
+const LIMIT = 20; // 20 seconds: how many pounds can you land
+function gapDur() { return clamp(0.62 - (G.timeS / LIMIT) * 0.46, 0.16, 0.62) * rand(0.85, 1.15); } // tempo follows the clock, not the count: fast from the start (user: 「序盤からもっと早く」), and the last stretch is faster still (user: 「最後らへんはもっとはやく」)
+function flipDur() { return clamp(0.28 - (G.timeS / LIMIT) * 0.15, 0.13, 0.28) * rand(0.9, 1.2); }
+function pop(text, color) {
+  const p = $('pop');
+  p.textContent = text;
+  p.style.color = color || '#fff';
+  p.classList.remove('show');
+  void p.offsetWidth;
+  p.classList.add('show');
+}
+function showScr(id) {
+  for (const s of ['resultScr']) $(s).classList.toggle('on', s === id);
+  $('hud').classList.toggle('on', G.phase === 'play' || G.phase === 'hit');
+}
+function updateHud() {} // the HUD is just the timer now; nothing else to refresh
+
+function startGame() {
+  restoreEnding();
+  G.phase = 'play';
+  G.pounds = 0; G.completed = 0; G.inMochi = 0;
+  G.handPos = 0; G.handTarget = 0; G.cycle = 'out'; G.cycleT = 1.1; G.feint = false; G.flipped = false; G.buffered = false;
+  G.swingT = -1; G.impacted = false; G.squash = 0; G.mochiRot = 0; G.flipT = -1; G.hitT = 0; G.swapT = -1;
+  handTrail.clear(); kineTrail.clear();
+  G.resultShown = false; G.endKind = 'hit'; G.doneT = 0; G.timeS = 0;
+  for (const m of trayMochi) scene.remove(m);
+  trayMochi.length = 0;
+  flipHandMesh.material = handSkinMat;
+  flipHandMesh.scale.set(1, 0.82, 1.18);
+  mochiG.position.set(0, 1.06, 0);
+  mochiG.rotation.set(0, 0, 0);
+  applySwing(SWING_KEYS.rest, SWING_KEYS.rest, 0);
+  applyPartner(0, 0);
+  showScr(null);
+  $('hud').classList.add('on');
+  pop('スタート！');
+  updateHud();
+}
+
+/* --- partner cycle: hand out -> in (flip) -> out, just faster and faster --- */
+function partnerStep(dt) {
+  G.cycleT -= dt;
+  if (G.cycle === 'out' && G.cycleT <= 0) {
+    G.cycle = 'in'; G.flipped = false;
+    sndEntry();
+    G.handTarget = 1; G.cycleT = flipDur();
+  } else if (G.cycle === 'in' && G.cycleT <= 0) {
+    G.cycle = 'out'; G.handTarget = 0; G.cycleT = gapDur();
+  }
+  const rate = G.handTarget > G.handPos ? 6.5 : 8.5;
+  const d = clamp(G.handTarget - G.handPos, -rate * dt, rate * dt);
+  G.handPos += d;
+  if (G.handPos > 0.85 && !G.flipped) {
+    G.flipped = true;
+    G.flipT = 0;
+    mochiG.rotation.z = 0;
+    sndFlip();
+  }
+  applyPartner(G.handPos, G.handPos);
+}
+
+/* --- pounding --- */
+function startPound() {
+  if (G.phase !== 'play') return;
+  if (G.swingT >= 0 && G.swingT < 0.62) { G.buffered = true; return; } // a tap mid-swing is buffered, not dropped — it fires the next swing at impact (mashing felt unresponsive when taps vanished)
+  G.swingT = 0; G.impacted = false;
+  ac();
+}
+function judge() {
+  if (G.handPos > 0.62) { handHit(); return; }
+  G.pounds++; G.inMochi++;
+  G.squash = 1;
+  burst();
+  spawnSparks();
+  sndPound();
+  updateHud();
+}
+function timeUp() {
+  G.phase = 'done'; G.doneT = 0; G.endKind = 'timeup';
+  $('skipBtn').classList.add('on'); // the ending is skipped with this button, not by tapping anywhere (user: 「スキップはスキップボタンで」)
+  sndDone();
+  pop('終了！', '#ffd94d');
+}
+function handHit() {
+  G.phase = 'hit'; G.hitT = 0; G.endKind = 'hit';
+  $('skipBtn').classList.add('on');
+  flipHandMesh.material = handHurtMat;
+  flipHandMesh.scale.set(1.5, 1.23, 1.77);
+  sndHit();
+  pop('あいたっ！', '#ff7a5c');
+}
+
+/* ================= ENDING PERFORMANCE (user spec, 2026-11-25) =================
+   after the run: the two eat the mochi together, with speech bubbles that change with the pound count.
+   35+ pounds (the best): a bright fade takes them to the moon, where a rabbit joins the meal.
+   a hand-hit finish: the partner eats with his hurt hand, trembling. Then the result screen. */
+const pieceGeo = new THREE.SphereGeometry(0.11, 10, 8);
+const piecePartner = new THREE.Mesh(pieceGeo, lam(0xfff6e8));
+piecePartner.scale.set(1, 0.72, 1); piecePartner.position.set(0, -0.66, 0.02); piecePartner.visible = false;
+restArm.add(piecePartner);
+const piecePlayer = new THREE.Mesh(pieceGeo, lam(0xfff6e8));
+piecePlayer.scale.set(1, 0.72, 1); piecePlayer.visible = false;
+scene.add(piecePlayer);
+/* the rabbit (moon only) */
+const rabbitG = new THREE.Group();
+const rabbitHead = new THREE.Group();
+{
+  const white = lam(0xf6f2ea), pink = lam(0xf2a7b8);
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.2, 3, 8), white); body.position.y = 0.26; rabbitG.add(body);
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), white); tail.position.set(0, 0.3, -0.2); rabbitG.add(tail);
+  for (const s of [-1, 1]) {
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, 0.2), white); foot.position.set(s * 0.1, 0.03, 0.12); rabbitG.add(foot);
+    const ear = new THREE.Group(); ear.position.set(s * 0.07, 0.16, 0);
+    const eo = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.2, 3, 6), white); eo.position.y = 0.14; ear.add(eo);
+    const ei = new THREE.Mesh(new THREE.CapsuleGeometry(0.024, 0.13, 3, 6), pink); ei.position.set(0, 0.14, 0.03); ear.add(ei);
+    ear.rotation.z = s * -0.12; ear.rotation.x = -0.08;
+    rabbitHead.add(ear);
+  }
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), white); rabbitHead.add(skull);
+  const eyeG = new THREE.SphereGeometry(0.02, 6, 6), eyeM = lam(0xc22e2e);
+  for (const s of [-1, 1]) { const e = new THREE.Mesh(eyeG, eyeM); e.position.set(s * 0.06, 0.02, 0.135); rabbitHead.add(e); }
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 6), pink); nose.position.set(0, -0.02, 0.148); rabbitHead.add(nose);
+  rabbitHead.position.y = 0.58;
+  rabbitG.add(rabbitHead);
+  const rp = new THREE.Mesh(pieceGeo, lam(0xfff6e8)); rp.scale.set(0.9, 0.65, 0.9); rp.position.set(0, 0.16, 0.3); rabbitG.add(rp);
+  rabbitG.position.set(-1.35, 0, 0.15); // beside the usu (portrait frame is narrow: anything front-and-side falls out of shot)
+  rabbitG.rotation.y = Math.atan2(0 - -1.35, 0 - 0.15);
+  rabbitG.visible = false;
+  scene.add(rabbitG);
+}
+/* the moon set */
+const moonG = new THREE.Group();
+{
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(26, 24), lam(0x8f979e));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; moonG.add(ground);
+  const craterM = lam(0x7c848c);
+  for (const [x, z, r] of [[-4, -3, 1.2], [3.5, -5, 1.6], [-2.5, 4.5, 0.9], [5, 3, 1.1], [-6, 1, 0.7]]) {
+    const c = new THREE.Mesh(new THREE.CircleGeometry(r, 16), craterM);
+    c.rotation.x = -Math.PI / 2; c.position.set(x, -0.012, z); moonG.add(c);
+  }
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(5.5, 20, 16), new THREE.MeshBasicMaterial({ color: 0xf6f1da, fog: false })); // fog:false — the room fog (16-30) would paint it brown
+  moon.position.set(-13, 10.5, -30); moonG.add(moon);
+  const starGeo = new THREE.BufferGeometry();
+  const sp = [];
+  for (let i = 0; i < 420; i++) { const a = rand(-1.2, 1.2), e = rand(0.08, 1.2), d = 55; sp.push(Math.sin(a) * Math.cos(e) * d, Math.sin(e) * d, -Math.cos(a) * Math.cos(e) * d); }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(sp), 3));
+  const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.55, fog: false }));
+  moonG.add(stars);
+  moonG.visible = false;
+  scene.add(moonG);
+}
+let roomHidden = [];
+function moonEnv(on) {
+  if (on) {
+    roomHidden = [];
+    const keep = new Set([usu, mochiG, playerG, partnerG, swingG, moonG, rabbitG, piecePlayer]);
+    scene.traverse(o => { if (o.isLight) keep.add(o); });
+    for (const A of armSegs) { keep.add(A.upper); keep.add(A.fore); keep.add(A.hand); }
+    for (const c of scene.children) if (!keep.has(c) && c.visible) { roomHidden.push(c); c.visible = false; }
+    scene.background.set(0x0d1430);
+    scene.fog.color.set(0x0d1430);
+    moonG.visible = true; rabbitG.visible = true;
+  } else {
+    for (const c of roomHidden) c.visible = true;
+    roomHidden = [];
+    scene.background.set(0x3a2415);
+    scene.fog.color.set(0x3a2415);
+    moonG.visible = false; rabbitG.visible = false;
+  }
+}
+const EAT_DOWN = { rx: -1.68, rz: -0.28 }, EAT_UP = { rx: -2.32, rz: -0.8 }; // partner REST-arm poses, probed against the real scene: down over the usu rim -> up to his mouth (gap 0.12)
+const HURT_HOLD = { rx: -2.15, rz: 0.65 }; // the hurt flip hand, held up in front of him
+const LAP_P = new THREE.Vector3(0, 1.04, -1.02), MOUTH_P = new THREE.Vector3(0, 1.68, -1.34), _grip = new THREE.Vector3();
+function poseArmsTo(p) {
+  for (const A of armSegs) {
+    _ga.set(p.x + A.s * 0.05, p.y, p.z);
+    _gb.set(A.shoulder.x + A.s * 0.13, Math.min(A.shoulder.y, _ga.y) - 0.28, (A.shoulder.z + _ga.z) / 2 + 0.02); // elbows hang DOWN (the poseArms-style out-elbow flared horizontal at mouth height)
+    poseSeg(A.upper, A.shoulder, _gb, 0.1);
+    poseSeg(A.fore, _gb, _ga, 0.075);
+    A.hand.position.copy(_ga);
+  }
+}
+function endingLines(kind, n, pattern) {
+  if (kind === 'moon') return pattern === 'hop' ? [
+    { at: 1.1, who: 'partner', text: 'ウサギさん、お餅持ってきたよ！' },
+    { at: 3.0, who: 'rabbit', text: 'ぴょんぴょん！' },
+    { at: 5.2, who: 'partner', text: '月のお餅、格別だな！' }] : [
+    { at: 1.1, who: 'partner', text: 'ウサギさん、お餅持ってきたよ！' },
+    { at: 3.3, who: 'rabbit', text: 'もぐもぐ…' },
+    { at: 5.4, who: 'partner', text: '月のお餅、格別だな！' }];
+  if (kind === 'hurt') return pattern === 'fufu' ? [
+    { at: 0.5, who: 'partner', text: 'いてて…' },
+    { at: 1.7, who: 'partner', text: 'ふーふー…' },
+    { at: 3.6, who: 'partner', text: n >= 25 ? 'これだけ叩けたなら許してやる！' : n >= 15 ? 'でも餅はうまいから許してやる' : n >= 5 ? '次は気をつけてくれよな' : '餅もまだだし手も痛いし…' }] : [
+    { at: 0.5, who: 'partner', text: 'いてて…' },
+    { at: 2.9, who: 'partner', text: n >= 25 ? 'これだけ叩けたなら許してやる！' : n >= 15 ? 'でも餅はうまいから許してやる' : n >= 5 ? '次は気をつけてくれよな' : '餅もまだだし手も痛いし…' }];
+  return [
+    { at: 0.5, who: 'partner', text: n >= 30 ? 'すごい出来だぞ！' : n >= 20 ? 'いい餅になった！' : n >= 10 ? 'まあまあの出来だな' : n >= 3 ? 'まあ、こんなもんか…' : 'これ、餅になってない…' },
+    { at: 2.9, who: 'partner', text: n >= 30 ? '店に出せる味だ！' : n >= 10 ? 'うまい！' : n >= 3 ? 'もっと叩けばよかったな' : 'まだ米の味がする' }];
+}
+function startEnding() {
+  const kind = G.endKind === 'hit' ? 'hurt' : (G.pounds >= 35 ? 'moon' : 'normal');
+  const patterns = kind === 'normal' ? ['eat'] : kind === 'hurt' ? ['eat', 'fufu'] : ['eat', 'hop']; // performance variations, picked at random each run (user: 「演出にバリエーション」; the photo pattern was cut in v38 at his 「写真の演出はいらない」)
+  const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+  G.phase = 'ending'; G.endingT = 0; G.endingKind = kind; G.endingPattern = pattern; G.endingSwapped = false; G.endingFlash = false;
+  G.endingLines = endingLines(kind, G.pounds, pattern);
+  G.endingDur = kind === 'moon' ? 7.9 : pattern === 'fufu' ? 5.8 : 5.4;
+  $('hud').classList.remove('on');
+  swingG.visible = false;
+  applyPartner(0, 0);
+  piecePartner.visible = true; piecePlayer.visible = true;
+  if (kind === 'moon') $('fadeWhite').classList.add('on');
+}
+const _bv = new THREE.Vector3();
+function bubbleStep(t) {
+  const b = $('bubble');
+  let cur = null;
+  for (const L of G.endingLines) if (t >= L.at) cur = L;
+  if (!cur || t > cur.at + 2.3) { b.classList.remove('on'); return; }
+  if (b.textContent !== cur.text) b.textContent = cur.text;
+  if (cur.who === 'rabbit') rabbitG.localToWorld(_bv.set(0, 1.3, 0));
+  else partnerG.localToWorld(_bv.set(0, 1.95, 0));
+  _bv.project(camera);
+  // clamp the centre inside the screen: the partner stands near the right edge, and an unclamped bubble ran off the side and collapsed into a vertical strip (user screenshot, 2026-11-26)
+  const bw = b.offsetWidth, bh = b.offsetHeight;
+  const ax = (_bv.x * 0.5 + 0.5) * innerWidth;
+  let bx = ax;
+  let by = (-_bv.y * 0.5 + 0.5) * innerHeight;
+  bx = bw >= innerWidth - 16 ? innerWidth / 2 : clamp(bx, bw / 2 + 8, innerWidth - bw / 2 - 8);
+  by = clamp(by, bh + 10, innerHeight - 8);
+  b.style.left = bx + 'px';
+  b.style.top = by + 'px';
+  b.style.setProperty('--tailX', clamp(ax - (bx - bw / 2), 14, bw - 14) + 'px'); // the tail keeps pointing at the speaker's head even when the bubble body is clamped (user: 「誰のセリフ？」)
+  b.classList.add('on');
+}
+function endingStep(dt) {
+  G.endingT += dt;
+  const t = G.endingT, kind = G.endingKind;
+  if (kind === 'moon' && !G.endingSwapped && t > 0.8) { moonEnv(true); G.endingSwapped = true; $('fadeWhite').classList.remove('on'); }
+  const k = 1 - Math.exp(-2.5 * dt);
+  const camT = kind === 'moon' ? [3.1, 2.4, 6.2] : [2.1, 2.05, 5.3]; // the moon shot pulls back so the rabbit fits the narrow portrait frame; the normal shot frames the partner centre-right so his speech bubble never hangs over the pounder (user: 「誰のセリフ？」)
+  camera.position.x += (camT[0] - camera.position.x) * k;
+  camera.position.y += (camT[1] - camera.position.y) * k;
+  camera.position.z += (camT[2] - camera.position.z) * k;
+  camera.lookAt(kind === 'moon' ? -0.2 : 0.5, 0.95, kind === 'moon' ? -0.2 : -0.15);
+  const pattern = G.endingPattern;
+  partnerG.rotation.y += (-1.15 - partnerG.rotation.y) * k; // turn him ~45° toward the camera so the bite reads (he otherwise eats with his back turned)
+  const period = kind === 'hurt' ? 1.7 : 1.15;
+  const eatT = pattern === 'fufu' ? Math.max(0, t - 3.0) : t; // fufu: he blows on the hurt hand first, eating starts at t=3
+  const cyc = Math.sin(eatT * Math.PI * 2 / period) * 0.5 + 0.5;
+  const bite = cyc * cyc * (3 - 2 * cyc);
+  if (pattern === 'fufu' && t <= 3.0) {
+    piecePartner.visible = piecePlayer.visible = false;
+    flipArm.rotation.x = HURT_HOLD.rx;
+    flipArm.rotation.z = HURT_HOLD.rz;
+    partnerBody.rotation.x = 0.3 + Math.sin(t * Math.PI * 2 / 0.85) * 0.05; // bowing toward the raised hurt hand, blowing on it
+    _grip.copy(LAP_P); poseArmsTo(_grip); piecePlayer.position.copy(_grip);
+    restArm.rotation.set(-0.55, 0, 0.25);
+  } else {
+    if (pattern === 'fufu') piecePartner.visible = piecePlayer.visible = true;
+    _grip.lerpVectors(LAP_P, MOUTH_P, bite);
+    poseArmsTo(_grip);
+    piecePlayer.position.copy(_grip);
+    restArm.rotation.x = EAT_DOWN.rx + (EAT_UP.rx - EAT_DOWN.rx) * bite;
+    restArm.rotation.z = EAT_DOWN.rz + (EAT_UP.rz - EAT_DOWN.rz) * bite;
+    if (kind === 'hurt' && pattern === 'eat') { // the hurt hand stays up, trembling, while he eats with the other hand
+      flipArm.rotation.x = HURT_HOLD.rx;
+      flipArm.rotation.z = HURT_HOLD.rz + Math.sin(t * 35) * 0.015;
+    }
+    partnerBody.rotation.x = 0.14 * bite;
+  }
+  if (kind === 'moon' && pattern === 'hop') { // the rabbit hops a small circle in front of the usu (a circle around the usu hid it behind the tub for half the loop)
+    const a = t * 1.6;
+    rabbitG.position.set(-1.5 + Math.cos(a) * 0.38, Math.abs(Math.sin(t * 5.2)) * 0.22, 0.85 + Math.sin(a) * 0.38);
+    rabbitG.rotation.y = -a + Math.PI / 2;
+  } else if (kind === 'moon') rabbitHead.rotation.x = 0.3 * (Math.sin(t * Math.PI * 2 / 0.9 + 1.3) * 0.5 + 0.5);
+  bubbleStep(t);
+  if (t > G.endingDur) finishEnding();
+}
+function finishEnding() {
+  $('bubble').classList.remove('on');
+  $('fadeWhite').classList.remove('on');
+  $('skipBtn').classList.remove('on');
+  G.phase = 'over';
+  showResult();
+}
+function restoreEnding() {
+  if (G.endingSwapped) moonEnv(false);
+  G.endingSwapped = false; G.endingKind = '';
+  $('bubble').classList.remove('on');
+  $('fadeWhite').classList.remove('on');
+  $('skipBtn').classList.remove('on');
+  piecePartner.visible = false; piecePlayer.visible = false;
+  partnerBody.rotation.y = 0;
+  partnerG.rotation.y = Math.atan2(0 - 1.3, 0 - 0.5);
+  rabbitG.position.set(-1.35, 0, 0.15);
+  rabbitG.rotation.y = Math.atan2(0 - -1.35, 0 - 0.15);
+  rabbitHead.rotation.x = 0;
+  restArm.rotation.set(-0.55, 0, 0.25);
+  swingG.visible = true;
+  camera.position.set(3.6, 3.9, 6.4);
+  camera.lookAt(0, 0.9, -0.3);
+}
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const easeIn = t => t * t * t;
+function swingStep(dt) {
+  if (G.swingT < 0) { playerG.rotation.x *= Math.exp(-8 * dt); return; }
+  G.swingT += dt / 0.38;
+  const t = G.swingT;
+  if (t < 0.32) {
+    const u = easeOut(t / 0.32);
+    applySwing(SWING_KEYS.rest, SWING_KEYS.windup, u);
+    playerG.rotation.x = -0.07 * u;
+  } else if (t < 0.58) {
+    const u = easeIn((t - 0.32) / 0.26);
+    applySwing(SWING_KEYS.windup, SWING_KEYS.strike, u);
+    playerG.rotation.x = -0.07 + 0.23 * u;
+  } else {
+    if (!G.impacted) { G.impacted = true; if (G.phase === 'play') judge(); if (G.buffered && G.phase === 'play') { G.buffered = false; G.swingT = 0; G.impacted = false; return; } }
+    const u = easeOut(clamp((t - 0.58) / 0.42, 0, 1));
+    applySwing(SWING_KEYS.strike, SWING_KEYS.rest, u);
+    playerG.rotation.x = 0.16 * (1 - u);
+  }
+  if (t >= 1) { G.swingT = -1; applySwing(SWING_KEYS.rest, SWING_KEYS.rest, 0); }
+}
+
+/* --- result --- */
+const COMMENTS = [
+  [8, ['相方はもう二度と餅つきをしないだろう', '餅より先に信頼が砕けた', '病院直行だった']],
+  [20, ['あと少しで餅らしくなったのに', '相方の手は腫れている', '返す前に叩いてしまった']],
+  [40, ['なかなかの腕前だった。手さえ叩かなければ', '相方は笑顔で手を押さえている', '餅はふっくら、手は真っ赤']],
+  [70, ['名人まであと一歩だった', '餅は絶品、手は重症', '相方の信頼は粉々になった']],
+  [1e9, ['伝説の領域。最後の一撃だけが悔やまれる', '相方の手と引き換えに最高の餅ができた', 'もう相方はいない。餅だけが残った']]
+];
+const TIMEUP_COMMENTS = [
+  [20, ['まだまだこれからだった', '手を読むのに必死だった']],
+  [35, ['なかなかのペースだった', '餅が形になってきた']],
+  [50, ['速い。餅もふっくらしてきた', '相方はついていくのに必死だった']],
+  [1e9, ['連打の領域', '名人の速さだった']]
+];
+function showResult() {
+  if (G.resultShown) return;
+  G.resultShown = true;
+  G.phase = 'over';
+  const timeup = G.endKind === 'timeup';
+  const best = Math.max(store.get('bestPounds', 0), G.pounds);
+  store.set('bestPounds', best);
+  $('resTitle').textContent = timeup ? (G.pounds === 0 ? '1回も叩かなかった' : G.pounds === 1 ? '1回しか叩けなかった' : '20秒叩ききった！') : '相方の手を叩いてしまった';
+  $('resPounds').textContent = G.pounds + '回';
+  $('resBest').textContent = best + '回';
+  $('resComment').textContent = timeup
+    ? pick(TIMEUP_COMMENTS.find(c => G.pounds < c[0])[1])
+    : pick(COMMENTS.find(c => G.pounds < c[0])[1]);
+  showScr('resultScr');
+}
+
+/* ================= SHARE IMAGE ================= */
+function buildShareImage() {
+  const S = 1080, cv = document.createElement('canvas');
+  cv.width = S; cv.height = S;
+  const g = cv.getContext('2d');
+  const src = renderer.domElement;
+  const side = Math.min(src.width, src.height);
+  g.drawImage(src, (src.width - side) / 2, (src.height - side) / 2, side, side, 0, 0, S, S);
+  const grad = g.createLinearGradient(0, S * 0.62, 0, S);
+  grad.addColorStop(0, 'rgba(20,10,4,0)');
+  grad.addColorStop(1, 'rgba(20,10,4,0.88)');
+  g.fillStyle = grad; g.fillRect(0, S * 0.62, S, S * 0.38);
+  g.fillStyle = '#fff'; g.textAlign = 'center';
+  g.font = '900 74px sans-serif';
+  g.fillText('餅つき名人', S / 2, S * 0.8);
+  g.font = '900 96px sans-serif'; g.fillStyle = '#ffd94d';
+  g.fillText(G.pounds + '回叩いた！', S / 2, S * 0.9);
+  g.font = '700 44px sans-serif'; g.fillStyle = '#fff';
+  g.fillText(G.endKind === 'timeup' ? '20秒叩ききった！' : '相方の手を叩いてしまった', S / 2, S * 0.955);
+  return cv;
+}
+$('shareBtn').addEventListener('click', async () => {
+  const text = G.endKind === 'timeup'
+    ? '『餅つき名人』で20秒に' + G.pounds + '回叩いた！'
+    : '『餅つき名人』で' + G.pounds + '回叩いた';
+  try {
+    const cv = buildShareImage();
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const file = new File([blob], 'mochi.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], text });
+      return;
+    }
+  } catch (e) {}
+  window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent('https://sa008ta.github.io/mochi-tsuki/'), '_blank');
+});
+
+/* ================= WIRING ================= */
+$('retryBtn').addEventListener('click', startGame);
+$('tapLayer').addEventListener('pointerdown', e => { e.preventDefault(); startPound(); });
+$('skipBtn').addEventListener('click', () => { if (G.phase === 'ending') finishEnding(); else if (G.phase === 'done' || G.phase === 'hit') { startEnding(); finishEnding(); } });
+addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); startPound(); } });
+startGame(); // no title screen, no ranking: the game starts on the game screen
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ================= MAIN LOOP ================= */
+let lastT = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = clamp((now - lastT) / 1000, 0, 0.05);
+  lastT = now;
+  const time = now / 1000;
+
+  if (G.phase === 'play') {
+    G.timeS += dt;
+    const tt = Math.max(0, LIMIT - G.timeS).toFixed(1);
+    if ($('timeNum').textContent !== tt) $('timeNum').textContent = tt;
+    if (G.timeS >= LIMIT) timeUp();
+    else { partnerStep(dt); swingStep(dt); }
+  } else if (G.phase === 'hit') {
+    G.hitT += dt;
+    G.handPos = Math.max(0, G.handPos - dt * 7);
+    const u = clamp(G.hitT / 0.35, 0, 1);
+    applyPartner(G.handPos, -0.85 * u);
+    swingStep(dt);
+    if (G.hitT > 1.15) startEnding();
+  } else if (G.phase === 'done') {
+    G.doneT += dt;
+    swingStep(dt);
+    if (G.doneT > 1.15) startEnding();
+  } else if (G.phase === 'ending') {
+    endingStep(dt);
+  } else {
+    swingStep(dt);
+  }
+
+  // mochi squash / flatten / flip / swap
+  G.squash *= Math.exp(-9 * dt);
+  const flat = clamp(1 - G.inMochi * 0.006, 0.7, 1); // the mochi flattens as the 20 seconds of pounding add up
+  const grow = 1 + G.inMochi * 0.005;
+  const shine = clamp(G.inMochi / 35, 0, 1); // a golden glow spreads from the center with every pound; at 35 the whole mochi glows
+  const gr2 = (0.08 + shine * 0.5) * grow; // kept inside the mochi's silhouette: the light stays on the mochi, the whole-body glow at max comes from the emissive below
+  glowDisc.scale.set(gr2, gr2, 1);
+  glowDisc.position.y = 0.30 + 0.17 * flat * (1 - G.squash * 0.4) + 0.04;
+  glowMat.opacity = shine * 0.55;
+  mochiMat.emissive.setRGB(0.3 * shine * shine, 0.19 * shine * shine, 0.02 * shine * shine);
+  glowLight.intensity = shine * 6; // not just a tint: the mochi actually lights the room as it glows
+  let my = 1.06, mScaleY = 0.55 * flat * (1 - G.squash * 0.45);
+  mochiMain.scale.set(grow * (1 + G.squash * 0.22), mScaleY / 0.55 * 0.55, grow * (1 + G.squash * 0.22));
+  mochiMain.scale.y = mScaleY;
+  mochiTop.scale.set(grow, 0.55 * flat * (1 - G.squash * 0.4), grow);
+  if (G.flipT >= 0) {
+    G.flipT += dt / 0.32;
+    if (G.flipT >= 1) { G.flipT = -1; G.mochiRot += Math.PI; mochiG.rotation.x = G.mochiRot; mochiG.position.y = 1.06; }
+    else {
+      mochiG.position.y = 1.06 + Math.sin(G.flipT * Math.PI) * 0.34;
+      mochiG.rotation.x = G.mochiRot + G.flipT * Math.PI;
+    }
+  }
+  if (G.swapT >= 0) {
+    G.swapT += dt / 0.6;
+    const t = G.swapT;
+    if (t < 0.5) {
+      const u = t / 0.5;
+      mochiG.position.x = 2.6 * u * 0.8;
+      mochiG.position.z = 1.15 * u * 0.8;
+      mochiG.position.y = 1.06 + Math.sin(u * Math.PI) * 0.4;
+    } else if (t < 0.55) {
+      if (!G.swapped) { G.swapped = true; addTrayMochi(); mochiG.position.set(0, 2.1, 0); }
+    } else {
+      const u = (t - 0.55) / 0.45;
+      mochiG.position.y = 2.1 - (2.1 - 1.06) * easeOut(u);
+      if (t >= 1) { G.swapT = -1; G.swapped = false; mochiG.position.set(0, 1.06, 0); }
+    }
+  }
+  if (G.flipT < 0 && G.swapT < 0) { // while the hand is in (even hidden under the mochi), the mochi itself keeps moving: pulled toward the partner and kneaded — a moving mochi means hands on it
+    mochiG.position.x = G.handPos * 0.13;
+    mochiG.position.z = G.handPos * 0.09;
+    const knead = G.handPos > 0.6 ? (G.handPos - 0.6) / 0.4 : 0;
+    mochiG.rotation.z = Math.sin(time * 26) * 0.04 * knead;
+    mochiG.position.y = 1.06 + Math.abs(Math.sin(time * 26)) * 0.018 * knead;
+  }
+  // steam + bursts
+  for (const s of steams) {
+    s.position.y += dt * 0.32;
+    s.position.x += Math.sin(time * 1.4 + s.userData.ph) * dt * 0.12;
+    if (s.position.y > 2.5) { s.position.y = 1.4; s.position.x = rand(-0.3, 0.3); }
+    s.material.opacity = 0.32 * (1 - (s.position.y - 1.4) / 1.1);
+  }
+  for (let i = bursts.length - 1; i >= 0; i--) {
+    const s = bursts[i];
+    s.userData.life -= dt;
+    if (s.userData.life <= 0) { scene.remove(s); bursts.splice(i, 1); continue; }
+    s.position.addScaledVector(s.userData.v, dt);
+    s.userData.v.y -= 2.6 * dt;
+    s.material.opacity = s.userData.life / 0.55 * 0.8;
+  }
+  updateTrails();
+  updateSparks(dt);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
+
+if (new URLSearchParams(location.search).has('dbg')) {
+  window.__G = G;
+  window.__fns = { startGame, startPound, showResult, judge, applySwing, SWING_KEYS, flipHandMesh, applyPartner, startEnding, finishEnding };
+}
+</script>
+</body>
+</html>
+
