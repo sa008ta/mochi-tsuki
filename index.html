@@ -125,6 +125,24 @@ const store = {
   set(k, v) { try { localStorage.setItem('mochi_' + k, JSON.stringify(v)); } catch (e) {} }
 };
 
+/* ============ PLAY COUNT (人数集計のみ・ランキング表示なし) ============ */
+const COUNT_POST = 'https://docs.google.com/forms/d/e/1FAIpQLScj2ImOaogGfjL0mJhBoBY6zOt_oNTgS31x1mDbDDZC9yHQ0w/formResponse';
+const COUNT_ENT = { name: 'entry.1715760450', score: 'entry.1993247625', pid: 'entry.1548534623', date: 'entry.1834378332' };
+function submitPlayCount(pounds) {
+  try {
+    const sub = store.get('subBest', -1);
+    if (store.get('counted', 0) && pounds <= sub) return;
+    const body = new URLSearchParams();
+    body.set(COUNT_ENT.name, 'NONAME');
+    body.set(COUNT_ENT.score, String(pounds));
+    body.set(COUNT_ENT.pid, playerId());
+    body.set(COUNT_ENT.date, new Date().toISOString().slice(0, 10));
+    fetch(COUNT_POST, { method: 'POST', mode: 'no-cors', keepalive: true, body }).catch(() => {});
+    store.set('counted', 1);
+    if (pounds > sub) store.set('subBest', pounds);
+  } catch (e) {}
+}
+
 /* ================= NAMES / NG (shared list) ================= */
 const NG_WORDS = [
   'ちんこ', 'チンコ', 'ちんぽ', 'チンポ', 'ちんちん', 'チンチン', 'ちんかす', 'まんこ', 'マンコ', 'おまんこ', 'まんかす',
@@ -970,6 +988,7 @@ function showResult() {
   const timeup = G.endKind === 'timeup';
   const best = Math.max(store.get('bestPounds', 0), G.pounds);
   store.set('bestPounds', best);
+  submitPlayCount(G.pounds);
   $('resTitle').textContent = timeup ? (G.pounds === 0 ? '1回も叩かなかった' : G.pounds === 1 ? '1回しか叩けなかった' : '20秒叩ききった！') : '相方の手を叩いてしまった';
   $('resPounds').textContent = G.pounds + '回';
   $('resBest').textContent = best + '回';
